@@ -1,1 +1,46 @@
+# Operating-system metadata
 .DS_Store
+._*
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# CMake out-of-source and generated files
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+Testing/
+
+# Language and tool caches
+__pycache__/
+*.pyc
+*.pyo
+.cache/
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+*.gcda
+*.gcno
+*.gcov
+coverage/
