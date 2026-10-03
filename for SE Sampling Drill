@@ -1,0 +1,246 @@
+#include <SPI.h>
+#include <mcp2515.h>
+#include "RPi_Pico_TimerInterrupt.h"
+#include "RoboMaster.h"
+
+#define RX_PIN 4
+#define CS_PIN 5
+#define SCK_PIN 6
+#define TX_PIN 7
+
+// 角度目標。元コードと同じく、角度の単位は度を想定。
+constexpr float MOVE_ANGLE_DEG = 105.0f;
+
+MCP2515 mcp(CS_PIN, 8000000, &SPI);
+struct can_frame sendMsg[2] = {};
+struct can_frame readMsg = {};
+
+RPI_PICO_Timer recvTimer(0);
+RPI_PICO_Timer sendTimer(1);
+RPI_PICO_Timer serialTimer(2);
+
+M2006 m2006;
+
+struct {
+  uint32_t recv = 1000000 / FEEDBACK_1000HZ;
+  uint32_t send = 1000000 / FEEDBACK_1000HZ;
+  uint32_t serial = 1000000 / 10;
+} dt;
+
+struct {
+  volatile bool recvMotor = false;
+  volatile bool sendMotor = false;
+  volatile bool serialIO = false;
+} flag;
+
+void initSPI();
+void initMCP();
+void initTimer();
+void setMotorParam();
+
+void recvMotor();
+void sendMotor();
+void serialIO();
+void moveToAngle(float angleDeg);
+
+bool recvMotorFlag(struct repeating_timer *t);
+bool sendMotorFlag(struct repeating_timer *t);
+bool serialIOFlag(struct repeating_timer *t);
+
+void setup() {
+  Serial.begin(115200);
+
+  initSPI();
+  initMCP();
+  setMotorParam();
+  initTimer();
+}
+
+void loop() {
+  if (flag.recvMotor) {
+    recvMotor();
+  }
+
+  if (flag.sendMotor) {
+    sendMotor();
+  }
+
+  if (flag.serialIO) {
+    serialIO();
+  }
+}
+
+void initSPI() {
+  SPI.setRX(RX_PIN);
+  SPI.setSCK(SCK_PIN);
+  SPI.setTX(TX_PIN);
+  SPI.begin();
+}
+
+void initMCP() {
+  mcp.reset();
+  mcp.setBitrate(CAN_1000KBPS, MCP_8MHZ);
+  mcp.setNormalMode();
+}
+
+void initTimer() {
+  recvTimer.attachInterruptInterval(dt.recv, recvMotorFlag);
+  sendTimer.attachInterruptInterval(dt.send, sendMotorFlag);
+  serialTimer.attachInterruptInterval(dt.serial, serialIOFlag);
+}
+
+void setMotorParam() {
+  m2006.mode = MODE::SLEEP;
+
+  // 元コードの設定を維持。
+  // 減速機出力軸の角度を制御する場合は、
+  // RoboMasterライブラリの仕様に合わせて変更する。
+  m2006.gearRatio = 1.0;
+  m2006.direction = DIRECTION::FWD;
+
+  m2006.pidParam.angle = {
+    0.5, 0.3, 0.0, 3600.0, 450.0
+  };
+
+  m2006.pidParam.speed = {
+    0.1, 0.1, 0.0, 450.0, 20.0
+  };
+
+  m2006.pidParam.current = {
+    0.0, 0.0, 0.0, 20.0, 20.0
+  };
+
+  m2006.setPidInterval(8, 4, 2);
+  m2006.init(1);
+
+  m2006.target.angle = 0.0;
+  m2006.target.speed = 0.0;
+  m2006.target.current = 0.0;
+}
+
+void recvMotor() {
+  // 処理中に発生した次回通知を末尾で消さないよう、
+  // フラグは処理の先頭で解除する。
+  flag.recvMotor = false;
+
+  MCP2515::ERROR status = mcp.readMessage(&readMsg);
+
+  if (status == MCP2515::ERROR_OK) {
+    m2006.refresh(micros(), sendMsg, readMsg);
+  }
+}
+
+void sendMotor() {
+  flag.sendMotor = false;
+
+  for (uint8_t i = 0; i < 2; i++) {
+    if (sendMsg[i].can_id != 0x00) {
+      MCP2515::ERROR status = mcp.sendMessage(&sendMsg[i]);
+
+      // 送信受付に成功した場合のみ送信待ちを解除する。
+      if (status == MCP2515::ERROR_OK) {
+        sendMsg[i].can_id = 0x00;
+      }
+    }
+  }
+}
+
+void moveToAngle(float angleDeg) {
+  // 角度目標を設定してから角度制御に切り替える。
+  m2006.target.angle = angleDeg;
+  m2006.mode = MODE::ANGLE;
+}
+
+void serialIO() {
+  flag.serialIO = false;
+
+  if (Serial.available() > 0) {
+    const int command = Serial.read();
+
+    switch (command) {
+      // 角度制御
+      case '1':
+        m2006.mode = MODE::ANGLE;
+        break;
+
+      case 'q':
+        moveToAngle(MOVE_ANGLE_DEG);
+        break;
+
+      case 'a':
+        moveToAngle(0.0f);
+        break;
+
+      case 'z':
+        moveToAngle(-MOVE_ANGLE_DEG);
+        break;
+
+      // 速度制御
+      case '2':
+        m2006.mode = MODE::SPEED;
+        break;
+
+      case 'w':
+        m2006.target.speed += 60.0;
+        break;
+
+      case 's':
+        m2006.target.speed = 0.0;
+        break;
+
+      case 'x':
+        m2006.target.speed -= 60.0;
+        break;
+
+      // 電流制御
+      case '3':
+        m2006.mode = MODE::CURRENT;
+        break;
+
+      case 'e':
+        m2006.target.current += 0.5;
+        break;
+
+      case 'd':
+        m2006.target.current = 0.0;
+        break;
+
+      case 'c':
+        m2006.target.current -= 0.5;
+        break;
+
+      // シリアルモニターからの改行は無視する。
+      case '\r':
+      case '\n':
+      default:
+        break;
+    }
+  }
+
+  // 出力順：
+  // 目標角度, 目標速度, 目標電流, 実角度, 実速度, 実電流
+  Serial.printf(
+    "%.2f, %.2f, %.2f, %.2f, %.2f, %.2f\n",
+    m2006.target.angle,
+    m2006.target.speed,
+    m2006.target.current,
+    m2006.getAngle(),
+    m2006.getSpeed(),
+    m2006.getCurrent()
+  );
+}
+
+bool recvMotorFlag(struct repeating_timer *t) {
+  flag.recvMotor = true;
+  return true;
+}
+
+bool sendMotorFlag(struct repeating_timer *t) {
+  flag.sendMotor = true;
+  return true;
+}
+
+bool serialIOFlag(struct repeating_timer *t) {
+  flag.serialIO = true;
+  return true;
+}
