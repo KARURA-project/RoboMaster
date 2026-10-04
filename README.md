@@ -69,7 +69,7 @@ target_link_libraries(your_target PRIVATE RoboMaster::Core)
 Existing ESP32S3 applications and their peripheral implementations are retained
 under `prototypes/esp32s3/`, outside the library source tree and PlatformIO
 library export. They are historical prototype code, not a required adapter or
-an expanding board support layer. See its `ESP32.md` for the existing setup.
+an expanding board support layer. See its `README.md` for the basic and keyboard samples for Arduino and PlatformIO.
 ESP32 types are no longer included by `RoboMasterCore.h`; applications that
 used them must compile their own peripheral sources and include their headers.
 
