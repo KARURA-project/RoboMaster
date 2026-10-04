@@ -53,7 +53,7 @@ public:
     MotorStatus configurationStatus() const;
     MotorStatus status() const;
     MotorStateStatus updateFeedback(
-        const CanFrame &frame,
+        const canbridge::Frame &frame,
         std::uint32_t receivedAtUs);
     void notifyFeedbackLoss();
     MotorStatus updateControl(std::uint32_t nowUs);

@@ -10,11 +10,11 @@ using namespace robomaster;
 
 namespace {
 
-CanFrame feedbackFrame(std::uint8_t id)
+canbridge::Frame feedbackFrame(std::uint8_t id)
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x200U + id;
-    frame.dlc = 8;
+    frame.length = 8;
     return frame;
 }
 
@@ -29,7 +29,7 @@ void configureMotor(Motor &motor)
         MotorStatus::Ok);
 }
 
-std::int16_t readCurrent(const CanFrame &frame, std::size_t slot)
+std::int16_t readCurrent(const canbridge::Frame &frame, std::size_t slot)
 {
     const std::uint16_t raw = static_cast<std::uint16_t>(
         (static_cast<std::uint16_t>(frame.data[slot * 2U]) << 8U) |
@@ -82,7 +82,7 @@ void testCommandFrameAggregation()
     assert(bus.add(motor5) == MotorBusStatus::Ok);
     assert(bus.updateControl(1000) == MotorBusStatus::Ok);
 
-    std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+    std::array<canbridge::Frame, MotorBus::kMaxCommandFrames> frames{};
     std::size_t count = 0U;
     assert(bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok);
     assert(count == 2U);
@@ -102,7 +102,7 @@ void testUnusedGroupIsNotGenerated()
     MotorBus bus;
     assert(bus.add(motor1) == MotorBusStatus::Ok);
 
-    std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+    std::array<canbridge::Frame, MotorBus::kMaxCommandFrames> frames{};
     std::size_t count = 0U;
     assert(bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok);
     assert(count == 1U);
@@ -125,7 +125,7 @@ void testBothCommandGroupsPreserveMotorSlots()
     assert(bus.add(motor8) == MotorBusStatus::Ok);
     assert(bus.updateControl(1000) == MotorBusStatus::Ok);
 
-    std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+    std::array<canbridge::Frame, MotorBus::kMaxCommandFrames> frames{};
     std::size_t count = 0U;
     assert(bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok);
     assert(count == 2U);
@@ -153,8 +153,8 @@ void testMalformedRoutedFeedbackStopsOnlyItsMotor()
     MotorBus bus;
     bus.add(motor1);
     bus.add(motor2);
-    CanFrame malformed = feedbackFrame(1);
-    malformed.dlc = 7U;
+    canbridge::Frame malformed = feedbackFrame(1);
+    malformed.length = 7U;
     assert(bus.updateFeedback(malformed, 2000) ==
         MotorBusStatus::MotorError);
     assert(motor1.commandCurrent() == 0.0);

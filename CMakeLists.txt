@@ -1,10 +1,22 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(RoboMasterCore VERSION 0.1.0 LANGUAGES CXX)
+project(RoboMasterCore VERSION 0.2.0 LANGUAGES CXX)
 
 option(ROBOMASTER_BUILD_TESTS "Build the board-independent tests" ON)
 
 include(GNUInstallDirs)
+
+set(CANBRIDGE_INCLUDE_DIR "" CACHE PATH
+    "Directory containing CANBridge.h")
+if(NOT CANBRIDGE_INCLUDE_DIR)
+    find_path(CANBRIDGE_INCLUDE_DIR
+        NAMES CANBridge.h
+        HINTS "${CMAKE_CURRENT_SOURCE_DIR}/../CANBridge/src")
+endif()
+if(NOT CANBRIDGE_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "CANBridge.h was not found. Set CANBRIDGE_INCLUDE_DIR to the CANBridge src directory.")
+endif()
 
 add_library(robomaster_core
     src/robomaster/Diagnostics.cpp
@@ -18,6 +30,7 @@ add_library(RoboMaster::Core ALIAS robomaster_core)
 
 target_include_directories(robomaster_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CANBRIDGE_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(robomaster_core PUBLIC cxx_std_11)
 set_target_properties(robomaster_core PROPERTIES
@@ -69,6 +82,8 @@ if(ROBOMASTER_BUILD_TESTS)
         add_test(NAME ${name} COMMAND ${name})
     endfunction()
 
+    robomaster_add_test(test_portable_boundary test/test_portable_boundary.cpp)
+    target_compile_definitions(test_portable_boundary PRIVATE ARDUINO_ARCH_ESP32=1)
     robomaster_add_test(test_control test/test_control.cpp)
     robomaster_add_test(test_diagnostics test/test_diagnostics.cpp)
     robomaster_add_test(test_motor test/test_motor.cpp)

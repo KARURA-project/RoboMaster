@@ -41,7 +41,7 @@ std::size_t MotorBus::size() const
 }
 
 MotorBusStatus MotorBus::updateFeedback(
-    const CanFrame &frame,
+    const canbridge::Frame &frame,
     std::uint32_t receivedAtUs)
 {
     if (frame.id < kFeedbackIdFirst || frame.id > kFeedbackIdLast) {
@@ -83,10 +83,10 @@ MotorBusStatus MotorBus::updateControl(std::uint32_t nowUs)
 }
 
 MotorBusStatus MotorBus::makeCommandFrames(
-    std::array<CanFrame, kMaxCommandFrames> &frames,
+    std::array<canbridge::Frame, kMaxCommandFrames> &frames,
     std::size_t &count) const
 {
-    frames = std::array<CanFrame, kMaxCommandFrames>{};
+    frames = std::array<canbridge::Frame, kMaxCommandFrames>{};
     count = 0U;
 
     for (std::uint8_t firstId : {std::uint8_t{1U}, std::uint8_t{5U}}) {
@@ -103,7 +103,7 @@ MotorBusStatus MotorBus::makeCommandFrames(
                     registered->commandCurrent(),
                     registered->controllerModel(),
                     currents[offset]) != ProtocolStatus::Ok) {
-                frames = std::array<CanFrame, kMaxCommandFrames>{};
+                frames = std::array<canbridge::Frame, kMaxCommandFrames>{};
                 count = 0U;
                 return MotorBusStatus::ProtocolError;
             }
@@ -112,7 +112,7 @@ MotorBusStatus MotorBus::makeCommandFrames(
         if (hasMotor) {
             if (makeCommandFrame(firstId, currents, frames[count]) !=
                 ProtocolStatus::Ok) {
-                frames = std::array<CanFrame, kMaxCommandFrames>{};
+                frames = std::array<canbridge::Frame, kMaxCommandFrames>{};
                 count = 0U;
                 return MotorBusStatus::ProtocolError;
             }

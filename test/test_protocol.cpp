@@ -12,9 +12,9 @@ namespace {
 
 void testDecodeFeedback()
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x203;
-    frame.dlc = 8;
+    frame.length = 8;
     frame.data[0] = 0x10;
     frame.data[1] = 0x00;
     frame.data[2] = 0xFF;
@@ -43,9 +43,9 @@ void testDecodeFeedback()
 
 void testRejectsMalformedFeedback()
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x201;
-    frame.dlc = 7;
+    frame.length = 7;
     Feedback feedback;
     feedback.id = 8;
     feedback.rpm = 100;
@@ -54,7 +54,7 @@ void testRejectsMalformedFeedback()
     assert(feedback.id == 0);
     assert(feedback.rpm == 0);
 
-    frame.dlc = 8;
+    frame.length = 8;
     frame.extended = true;
     assert(decodeFeedback(frame, ControllerModel::C610, feedback) ==
         ProtocolStatus::InvalidFrameType);
@@ -68,9 +68,9 @@ void testRejectsMalformedFeedback()
 
 void testControllerSpecificFeedback()
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x201;
-    frame.dlc = 8;
+    frame.length = 8;
     frame.data[6] = 42;
 
     Feedback feedback;
@@ -111,10 +111,10 @@ void testCurrentEncoding()
 void testGroupCurrentEncoding()
 {
     const std::array<std::int16_t, 4> currents{{0x1234, -1, 0, 0x0102}};
-    CanFrame frame;
+    canbridge::Frame frame;
     assert(makeCommandFrame(1, currents, frame) == ProtocolStatus::Ok);
     assert(frame.id == 0x200);
-    assert(frame.dlc == 8);
+    assert(frame.length == 8);
     assert(frame.data[0] == 0x12 && frame.data[1] == 0x34);
     assert(frame.data[2] == 0xFF && frame.data[3] == 0xFF);
     assert(frame.data[6] == 0x01 && frame.data[7] == 0x02);
@@ -127,7 +127,7 @@ void testGroupCurrentEncoding()
     assert(setCommandCurrent(frame, 4, 0) ==
         ProtocolStatus::InvalidFrameType);
     frame.extended = false;
-    frame.dlc = 7;
+    frame.length = 7;
     assert(setCommandCurrent(frame, 4, 0) ==
         ProtocolStatus::InvalidFrameLength);
 
@@ -193,9 +193,9 @@ void testRejectsInvalidModels()
         ProtocolStatus::InvalidModel);
     assert(currentA == 0.0);
 
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x201;
-    frame.dlc = 8;
+    frame.length = 8;
     Feedback feedback;
     assert(decodeFeedback(frame, invalidController, feedback) ==
         ProtocolStatus::InvalidModel);

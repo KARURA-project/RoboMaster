@@ -10,7 +10,7 @@ namespace {
 
 class SimulatedM2006 {
 public:
-    CanFrame feedbackFrame(std::uint8_t id) const
+    canbridge::Frame feedbackFrame(std::uint8_t id) const
     {
         const double rotorDegrees = positionDegrees_ * kGearRatio;
         double wrappedDegrees = std::fmod(rotorDegrees, 360.0);
@@ -29,9 +29,9 @@ public:
             ControllerModel::C610,
             currentRaw) == ProtocolStatus::Ok);
 
-        CanFrame frame;
+        canbridge::Frame frame;
         frame.id = 0x200U + id;
-        frame.dlc = 8;
+        frame.length = 8;
         frame.data[0] = static_cast<std::uint8_t>(encoder >> 8U);
         frame.data[1] = static_cast<std::uint8_t>(encoder & 0xFFU);
         const std::uint16_t rawRpm = static_cast<std::uint16_t>(rotorRpm);

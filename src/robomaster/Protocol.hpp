@@ -1,5 +1,7 @@
 #pragma once
 
+#include <CANBridge.h>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -56,14 +58,6 @@ struct ControllerSpec {
     FeedbackRate defaultFeedbackRate;
 };
 
-struct CanFrame {
-    std::uint32_t id = 0;
-    std::uint8_t dlc = 0;
-    std::array<std::uint8_t, kCanPayloadSize> data{};
-    bool extended = false;
-    bool remote = false;
-};
-
 struct Feedback {
     // Speed controller ID, 1-8.
     std::uint8_t id = 0;
@@ -101,7 +95,7 @@ ProtocolStatus getControllerSpec(
     ControllerSpec &spec);
 
 ProtocolStatus decodeFeedback(
-    const CanFrame &frame,
+    const canbridge::Frame &frame,
     ControllerModel model,
     Feedback &feedback);
 
@@ -118,13 +112,13 @@ ProtocolStatus estimateCurrent(
     double &currentA);
 
 ProtocolStatus setCommandCurrent(
-    CanFrame &frame,
+    canbridge::Frame &frame,
     std::uint8_t id,
     std::int16_t currentRaw);
 
 ProtocolStatus makeCommandFrame(
     std::uint8_t firstId,
     const std::array<std::int16_t, 4> &currents,
-    CanFrame &frame);
+    canbridge::Frame &frame);
 
 }  // namespace robomaster
