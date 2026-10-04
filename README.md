@@ -1,56 +1,57 @@
 # RoboMaster
 
-C++11 library for DJI RoboMaster M2006/M3508 motors with C610/C620 controllers. The control and protocol core is board-independent; the current Arduino package supports ESP32 through its TWAI CAN and hardware-timer adapter.
+Board-independent C++11 control and protocol library for DJI RoboMaster
+M2006/M3508 motors with C610/C620 controllers.
 
-## Arduino installation
-
-Place this repository in the Arduino libraries directory and restart Arduino
-IDE after changing library files. Include the complete API with:
+The library owns no CAN peripheral, clock, hardware timer, interrupt, or task.
+Applications supply received CAN frames and unsigned 32-bit microsecond timestamps,
+and transmit the generated command frames using their existing CAN transport.
+No board-specific implementation is required inside this library.
 
 ```cpp
 #include <RoboMasterCore.h>
-
 using namespace robomaster;
-```
 
-Create one `Motor` per physical motor and one `MotorBus` per CAN bus. A bus
-accepts controller IDs 1 through 8:
-
-```cpp
-Motor motor1{1, MotorModel::M3508, ControllerModel::C620};
-Motor motor2{2, MotorModel::M3508, ControllerModel::C620};
+Motor motor{1, MotorModel::M3508, ControllerModel::C620};
 MotorBus bus;
-
-bus.add(motor1);
-bus.add(motor2);
+// During application initialization: bus.add(motor), then configure the motor.
 ```
 
-All operations return typed status values. They can be printed without a
-lookup table:
+## Application integration
 
-```cpp
-const MotorStatus status = motor1.setMaxCurrent(2.0);
-Serial.println(toString(status));
-```
+Convert your driver's frame to `CanFrame` (`id`, `dlc`, `data`, `extended`,
+`remote`) and call `bus.updateFeedback(frame, receivedAtUs)`. Regularly call
+`bus.updateControl(nowUs)`, even when no feedback arrives, so watchdogs run.
+To transmit, call `makeCommandFrames(frames, count)` and pass each frame to
+an application-owned CAN sender. Optional `commandFramesDue(nowUs)` and
+`markCommandFramesSent(nowUs)` helpers retain the existing send-period behavior;
+mark sent only after every generated frame has been accepted by the transport.
+Transport acceptance does not guarantee physical delivery.
 
-## Examples
+Use one clock domain for all timestamps. Prefer actual receive timestamps when
+available; otherwise drain the receive queue promptly and use processing time.
+Process feedback before control and avoid blocking work between these operations.
+A driver-frame conversion is the only board-specific glue normally needed.
 
-- `XiaoEsp32s3ZeroCurrent`: safe wiring and communication check.
-- `XiaoEsp32s3Speed`: speed PI control.
-- `XiaoEsp32s3Position`: referenced multi-turn position control.
-- `XiaoEsp32s3TwoMotors`: two motors on one CAN bus.
-- `platformio/XiaoEsp32s3`: complete PlatformIO project.
+Keep receive routing and shared-bus scheduling in the application. The library
+never drains a CAN queue or sends frames on its own. Core PID periods, current
+limits, feedback/command watchdogs, position integrity, and latched emergency
+stops are unchanged.
 
-ESP32 examples use XIAO ESP32S3 D0/GPIO1 for CAN TX and D1/GPIO2 for CAN RX at 1 Mbit/s. An external CAN transceiver and correct termination are required. See `docs/CORE_API.md` and `docs/ESP32.md`.
+When the transport reports lost feedback, call `notifyFeedbackLoss()`; when it
+reports bus-off or error-passive, call `emergencyStopAll()` to preserve the
+previous prototype's safety policy. These board-independent fault notifications
+are optional for basic integration, but omitting them loses protection against
+faults that cannot be inferred from frames and timestamps. Correct the cause
+and explicitly recover; stale motion targets are never resumed automatically.
+See [the core API](docs/CORE_API.md) for configuration and recovery behavior.
 
-The PID gains and limits in the examples are tested starting values for an
-unloaded M3508 with a C620. They are not universal tuning values. In
-particular, the tracking maximum speed is an application assumption used to
-judge multi-turn position integrity, not a guaranteed physical maximum.
+## Installation
 
-## Native CMake / ROS 2
+Arduino: install the library and include `<RoboMasterCore.h>`. The package has
+no board-specific dependencies. PlatformIO: add this repository to `lib_deps`.
 
-The board-independent core can be installed as a normal CMake package:
+Native CMake / ROS 2:
 
 ```sh
 cmake -S . -B build -DROBOMASTER_BUILD_TESTS=OFF
@@ -58,16 +59,23 @@ cmake --build build
 cmake --install build --prefix /path/to/prefix
 ```
 
-An application or ROS 2 package can then use:
-
 ```cmake
 find_package(RoboMasterCore CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE RoboMaster::Core)
 ```
 
-The ESP32 TWAI and timer adapters are intentionally excluded from the native
-target. A Linux SocketCAN adapter can therefore be added without introducing
-Arduino dependencies into the control core.
+## Retained prototype
+
+Existing ESP32S3 applications and their peripheral implementations are retained
+under `prototypes/esp32s3/`, outside the library source tree and PlatformIO
+library export. They are historical prototype code, not a required adapter or
+an expanding board support layer. See its `ESP32.md` for the existing setup.
+ESP32 types are no longer included by `RoboMasterCore.h`; applications that
+used them must compile their own peripheral sources and include their headers.
+
+## Validation
+
+Run `sh test/run_native_tests.sh` and `sh test/run_sanitized_tests.sh`.
 
 ## License
 

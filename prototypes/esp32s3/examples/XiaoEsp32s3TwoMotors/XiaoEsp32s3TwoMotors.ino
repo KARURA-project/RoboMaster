@@ -1,4 +1,5 @@
 #include <RoboMasterCore.h>
+#include "Esp32.hpp"
 
 using namespace robomaster;
 

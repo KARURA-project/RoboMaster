@@ -3,7 +3,12 @@
   "name": "RoboMaster",
   "version": "0.1.0",
   "description": "Safe, portable control for DJI RoboMaster motors and controllers.",
-  "keywords": ["robomaster", "can", "motor", "pid"],
+  "keywords": [
+    "robomaster",
+    "can",
+    "motor",
+    "pid"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/KARURA-project/RoboMaster.git"
@@ -16,8 +21,8 @@
     }
   ],
   "license": "MIT",
-  "frameworks": ["arduino"],
-  "platforms": ["espressif32"],
+  "frameworks": "*",
+  "platforms": "*",
   "headers": "RoboMasterCore.h",
   "export": {
     "exclude": [
@@ -26,7 +31,7 @@
       "test",
       ".DS_Store",
       "**/.DS_Store",
-      "examples/platformio/*/.pio"
+      "prototypes"
     ]
   }
 }

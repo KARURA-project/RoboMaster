@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "../../MotorBus.hpp"
+#include <robomaster/MotorBus.hpp>
 
 namespace robomaster {
 

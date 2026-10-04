@@ -136,3 +136,11 @@ mkdir -p "$build_dir"
     -o "$build_dir/test_properties"
 
 "$build_dir/test_properties"
+
+# The public package must not require ESP32 headers even on an ESP32 build.
+"$compiler" -std=c++11 -Wall -Wextra -Wpedantic -Werror \
+    -DARDUINO_ARCH_ESP32=1 -I"$root_dir/src" \
+    "$root_dir"/src/robomaster/*.cpp \
+    "$root_dir/test/test_portable_boundary.cpp" \
+    -o "$build_dir/test_portable_boundary"
+"$build_dir/test_portable_boundary"

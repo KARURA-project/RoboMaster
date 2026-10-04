@@ -13,6 +13,21 @@ Every public status enum can be passed to `toString(status)`. This returns a
 static diagnostic name such as `"CommandTimeout"` without allocation or
 Arduino dependencies.
 
+## Hardware boundary
+
+`RoboMasterCore.h` always exposes only the board-independent API, including on
+ESP32. CAN initialization, receive/send queues, clock reads, hardware timers,
+interrupts, and application tasks are owned by the application. The library
+accepts `CanFrame` values and timestamps; generating a frame performs no I/O.
+No hardware timer is required. Regular application calls drive the core's
+existing period checks and watchdogs.
+
+Transport fault notifications remain available: call `notifyFeedbackLoss()`
+for lost feedback and `emergencyStopAll()` for transport faults requiring a
+latched stop. Frame/time input alone cannot detect every receive-queue loss.
+Use one timestamp clock domain and call `updateControl()` even without new
+feedback. Never mark command frames sent after a failed or partial batch.
+
 ## Object model
 
 - Create one `robomaster::Motor` for each physical motor.

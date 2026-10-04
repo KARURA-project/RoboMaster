@@ -69,6 +69,8 @@ if(ROBOMASTER_BUILD_TESTS)
         add_test(NAME ${name} COMMAND ${name})
     endfunction()
 
+    robomaster_add_test(test_portable_boundary test/test_portable_boundary.cpp)
+    target_compile_definitions(test_portable_boundary PRIVATE ARDUINO_ARCH_ESP32=1)
     robomaster_add_test(test_control test/test_control.cpp)
     robomaster_add_test(test_diagnostics test/test_diagnostics.cpp)
     robomaster_add_test(test_motor test/test_motor.cpp)

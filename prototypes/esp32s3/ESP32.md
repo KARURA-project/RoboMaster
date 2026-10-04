@@ -1,3 +1,10 @@
+> Retained prototype reference, not a supported library platform API.
+> Peripheral code lives in `board/` and is compiled by the prototype application.
+> The PlatformIO project compiles `src/Board.cpp`; keep this directory structure.
+> Arduino sketches are retained as references. To build one, copy the five files
+> from `board/` into the sketch directory so Arduino compiles them as application
+> sources. They are no longer supplied by the installed RoboMaster library.
+
 # ESP32 board adapter
 
 The ESP32 adapter targets the on-chip TWAI controller through Arduino-ESP32
@@ -17,6 +24,7 @@ Include the core and the matching platform API with:
 
 ```cpp
 #include <RoboMasterCore.h>
+#include "Esp32.hpp"
 ```
 
 `Esp32Timer` only increments a saturating notification counter in its ISR.
@@ -48,14 +56,14 @@ prints its report.
 
 See the verified Arduino integration examples:
 
-- `examples/XiaoEsp32s3ZeroCurrent`
-- `examples/XiaoEsp32s3Speed`
-- `examples/XiaoEsp32s3Position`
-- `examples/XiaoEsp32s3TwoMotors`
+- `prototypes/esp32s3/examples/XiaoEsp32s3ZeroCurrent`
+- `prototypes/esp32s3/examples/XiaoEsp32s3Speed`
+- `prototypes/esp32s3/examples/XiaoEsp32s3Position`
+- `prototypes/esp32s3/examples/XiaoEsp32s3TwoMotors`
 
 ## PlatformIO
 
-Open `examples/platformio/XiaoEsp32s3` as a PlatformIO project. Its
-`lib_extra_dirs` setting points at the directory containing this repository,
+Open `prototypes/esp32s3/examples/platformio/XiaoEsp32s3` as a PlatformIO project. Its
+`lib_deps` setting points at this repository,
 so a local library edit is used by the next build without copying files. When using an installed or
-published release, remove `lib_extra_dirs` and add `RoboMaster` to `lib_deps`.
+published release, replace the local `lib_deps` entry and add `RoboMaster` to `lib_deps`.
