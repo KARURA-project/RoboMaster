@@ -53,3 +53,9 @@ Build validation: both PlatformIO projects and both actual Arduino `.ino`
 sketches compiled for XIAO ESP32S3 using PlatformIO Espressif32 6.13.0 /
 Arduino-ESP32 2.0.17. The sketches were built through temporary PlatformIO
 projects; Arduino IDE itself and hardware operation were not tested.
+
+CAN sources use their own `board::CanFrame` and report transport health only.
+They include no RoboMaster headers and perform no motor routing or stopping.
+Only the `.ino` / `main.cpp` converts frames, routes feedback, generates commands,
+and translates transport faults into feedback-loss notification and latched stops.
+Receive work is bounded to 64 frames per loop to keep control calls running.

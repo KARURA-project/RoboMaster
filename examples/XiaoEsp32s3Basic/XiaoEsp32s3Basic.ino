@@ -2,6 +2,9 @@
 #include <RoboMasterCore.h>
 #include "Esp32Can.hpp"
 using namespace robomaster;
+using board::Esp32Can;
+using board::Esp32CanConfig;
+using board::Esp32CanStatus;
 
 // XIAO ESP32S3: D0/GPIO1 TX, D1/GPIO2 RX; M3508 + C620, ID 1.
 Motor motor{1, MotorModel::M3508, ControllerModel::C620};
@@ -35,7 +38,36 @@ void setup() {
 }
 
 void loop() {
-    if (can.started() && can.receive(bus) != Esp32CanStatus::Ok) stopOnFault();
+    if (can.started()) {
+        // Receive routing belongs to the application, never to the CAN driver.
+        // Bound work per loop so control and keyboard processing cannot starve.
+        for (unsigned i = 0; i < 64U; ++i) {
+            board::CanFrame received;
+            const Esp32CanStatus status = can.receive(received);
+            if (status == Esp32CanStatus::NoFrame) break;
+            if (status != Esp32CanStatus::Ok) { stopOnFault(); break; }
+            CanFrame frame;
+            frame.id = received.id;
+            frame.dlc = received.dlc;
+            frame.data = received.data;
+            frame.extended = received.extended;
+            frame.remote = received.remote;
+            const MotorBusStatus feedback = bus.updateFeedback(frame, micros());
+            if (feedback != MotorBusStatus::Ok &&
+                feedback != MotorBusStatus::InvalidCanId &&
+                feedback != MotorBusStatus::UnknownMotor) stopOnFault();
+        }
+        const board::Esp32CanHealth before = can.health();
+        const Esp32CanStatus healthStatus = can.pollHealth();
+        const board::Esp32CanHealth &after = can.health();
+        if (after.missedFrames != before.missedFrames ||
+            after.overrunFrames != before.overrunFrames ||
+            after.busErrors != before.busErrors ||
+            after.queueFullAlerts != before.queueFullAlerts) {
+            bus.notifyFeedbackLoss();
+        }
+        if (healthStatus != Esp32CanStatus::Ok) stopOnFault();
+    }
     const uint32_t nowUs = micros();
     if (!faulted && !ready) {
         if (motor.state().hasFeedback()) {
@@ -49,7 +81,19 @@ void loop() {
     if (!faulted && bus.updateControl(nowUs) != MotorBusStatus::Ok) stopOnFault();
     // Keep sending zero-current frames after a fault; never replay an old target.
     if (can.started() && bus.commandFramesDue(nowUs)) {
-        if (can.send(bus) == Esp32CanStatus::Ok) bus.markCommandFramesSent(nowUs);
+        std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+        std::size_t count = 0U;
+        bool sent = bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok;
+        for (std::size_t i = 0; sent && i < count; ++i) {
+            board::CanFrame outgoing;
+            outgoing.id = frames[i].id;
+            outgoing.dlc = frames[i].dlc;
+            outgoing.data = frames[i].data;
+            outgoing.extended = frames[i].extended;
+            outgoing.remote = frames[i].remote;
+            sent = can.send(outgoing) == Esp32CanStatus::Ok;
+        }
+        if (sent) bus.markCommandFramesSent(nowUs);
         else stopOnFault();
     }
 }

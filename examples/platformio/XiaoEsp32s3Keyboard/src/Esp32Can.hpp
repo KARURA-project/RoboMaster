@@ -2,9 +2,18 @@
 
 #include <cstdint>
 
-#include <robomaster/MotorBus.hpp>
+#include <array>
 
-namespace robomaster {
+namespace board {
+
+// Generic Classic CAN frame; independent of motor protocols and libraries.
+struct CanFrame {
+    std::uint32_t id = 0U;
+    std::uint8_t dlc = 0U;
+    std::array<std::uint8_t, 8> data{};
+    bool extended = false;
+    bool remote = false;
+};
 
 struct Esp32CanConfig {
     constexpr Esp32CanConfig(
@@ -25,7 +34,6 @@ struct Esp32CanConfig {
 
 struct Esp32CanHealth {
     std::uint32_t receivedFrames = 0U;
-    std::uint32_t ignoredFrames = 0U;
     std::uint32_t transmittedFrames = 0U;
     std::uint32_t transmitFailures = 0U;
     std::uint32_t missedFrames = 0U;
@@ -46,7 +54,8 @@ enum class Esp32CanStatus : std::uint8_t {
     StopFailed,
     ReceiveFailed,
     TransmitFailed,
-    MotorError,
+    NoFrame,
+    InvalidFrame,
     FeedbackLost,
     ErrorPassive,
     BusOff,
@@ -60,9 +69,9 @@ public:
 
     Esp32CanStatus begin();
     Esp32CanStatus end();
-    Esp32CanStatus receive(MotorBus &bus);
+    Esp32CanStatus receive(CanFrame &frame);
+    Esp32CanStatus pollHealth();
     Esp32CanStatus send(const CanFrame &frame);
-    Esp32CanStatus send(const MotorBus &bus);
 
     bool started() const;
     const Esp32CanConfig &config() const;
@@ -70,7 +79,6 @@ public:
     void clearHealth();
 
 private:
-    Esp32CanStatus updateDriverHealth(MotorBus &bus);
 
     Esp32CanConfig config_;
     Esp32CanHealth health_{};
@@ -80,4 +88,4 @@ private:
     std::uint32_t previousBusErrors_ = 0U;
 };
 
-}  // namespace robomaster
+}  // namespace board
