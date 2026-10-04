@@ -5,6 +5,12 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 compiler=${CXX:-c++}
 compiler_name=$(basename "$compiler")
 build_dir="${TMPDIR:-/tmp}/robomaster-native-tests-$compiler_name"
+canbridge_include=${CANBRIDGE_INCLUDE_DIR:-"$root_dir/../CANBridge/src"}
+
+if [ ! -f "$canbridge_include/CANBridge.h" ]; then
+    echo "CANBridge.h not found; set CANBRIDGE_INCLUDE_DIR to CANBridge/src" >&2
+    exit 1
+fi
 
 mkdir -p "$build_dir"
 
@@ -14,7 +20,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/test/test_protocol.cpp" \
     -o "$build_dir/test_protocol"
@@ -27,7 +33,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/test/test_control.cpp" \
     -o "$build_dir/test_control"
 
@@ -39,7 +45,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Diagnostics.cpp" \
     "$root_dir/test/test_diagnostics.cpp" \
     -o "$build_dir/test_diagnostics"
@@ -52,7 +58,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Pid.cpp" \
     "$root_dir/test/test_pid.cpp" \
     -o "$build_dir/test_pid"
@@ -65,7 +71,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/src/robomaster/MotorState.cpp" \
     "$root_dir/test/test_motor_state.cpp" \
@@ -79,7 +85,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/src/robomaster/MotorState.cpp" \
     "$root_dir/src/robomaster/Pid.cpp" \
@@ -95,7 +101,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/src/robomaster/MotorState.cpp" \
     "$root_dir/src/robomaster/Pid.cpp" \
@@ -112,7 +118,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/src/robomaster/MotorState.cpp" \
     "$root_dir/src/robomaster/Pid.cpp" \
@@ -128,7 +134,7 @@ mkdir -p "$build_dir"
     -Wextra \
     -Wpedantic \
     -Werror \
-    -I"$root_dir/src" \
+    -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir/src/robomaster/Protocol.cpp" \
     "$root_dir/src/robomaster/MotorState.cpp" \
     "$root_dir/src/robomaster/Pid.cpp" \
@@ -139,7 +145,7 @@ mkdir -p "$build_dir"
 
 # The public package must not require ESP32 headers even on an ESP32 build.
 "$compiler" -std=c++11 -Wall -Wextra -Wpedantic -Werror \
-    -DARDUINO_ARCH_ESP32=1 -I"$root_dir/src" \
+    -DARDUINO_ARCH_ESP32=1 -I"$root_dir/src" -I"$canbridge_include" \
     "$root_dir"/src/robomaster/*.cpp \
     "$root_dir/test/test_portable_boundary.cpp" \
     -o "$build_dir/test_portable_boundary"

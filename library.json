@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
   "name": "RoboMaster",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Safe, portable control for DJI RoboMaster motors and controllers.",
   "keywords": [
     "robomaster",
@@ -24,6 +24,9 @@
   "frameworks": "*",
   "platforms": "*",
   "headers": "RoboMasterCore.h",
+  "dependencies": {
+    "CANBridge": "https://github.com/KARURA-project/CANBridge.git"
+  },
   "export": {
     "exclude": [
       ".git",

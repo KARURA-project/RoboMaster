@@ -10,15 +10,15 @@ using namespace robomaster;
 
 namespace {
 
-CanFrame feedbackFrame(
+canbridge::Frame feedbackFrame(
     std::uint8_t id,
     std::uint16_t encoder,
     std::int16_t rpm,
     std::int16_t currentRaw = 0)
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x200U + id;
-    frame.dlc = 8;
+    frame.length = 8;
     frame.data[0] = static_cast<std::uint8_t>(encoder >> 8U);
     frame.data[1] = static_cast<std::uint8_t>(encoder & 0xFFU);
     const std::uint16_t rawRpm = static_cast<std::uint16_t>(rpm);
@@ -267,8 +267,8 @@ void testMalformedFeedbackStopsOutput()
     motor.updateControl(1000);
     assert(motor.commandCurrent() == 2.0);
 
-    CanFrame malformed = feedbackFrame(1, 0, 0);
-    malformed.dlc = 7U;
+    canbridge::Frame malformed = feedbackFrame(1, 0, 0);
+    malformed.length = 7U;
     assert(motor.updateFeedback(malformed, 2000) ==
         MotorStateStatus::InvalidFrameLength);
     assert(motor.status() == MotorStatus::InvalidFeedback);

@@ -64,7 +64,9 @@ public:
         ControllerModel controllerModel);
 
     MotorStateStatus configurationStatus() const;
-    MotorStateStatus update(const CanFrame &frame, std::uint32_t receivedAtUs);
+    MotorStateStatus update(
+        const canbridge::Frame &frame,
+        std::uint32_t receivedAtUs);
 
     MotorStateStatus setExpectedFeedbackRate(FeedbackRate rate);
     void clearExpectedFeedbackRate();

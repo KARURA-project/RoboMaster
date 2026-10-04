@@ -11,7 +11,7 @@ int main()
     assert(bus.add(motor) == MotorBusStatus::Ok);
     assert(motor.coast(0U) == MotorStatus::Ok);
     assert(bus.updateControl(1000U) == MotorBusStatus::Ok);
-    std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+    std::array<canbridge::Frame, MotorBus::kMaxCommandFrames> frames{};
     std::size_t count = 0U;
     assert(bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok);
     assert(count == 1U);

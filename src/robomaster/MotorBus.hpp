@@ -38,13 +38,13 @@ public:
     std::size_t size() const;
 
     MotorBusStatus updateFeedback(
-        const CanFrame &frame,
+        const canbridge::Frame &frame,
         std::uint32_t receivedAtUs);
     void notifyFeedbackLoss();
     MotorBusStatus updateControl(std::uint32_t nowUs);
 
     MotorBusStatus makeCommandFrames(
-        std::array<CanFrame, kMaxCommandFrames> &frames,
+        std::array<canbridge::Frame, kMaxCommandFrames> &frames,
         std::size_t &count) const;
 
     MotorBusStatus setSendPeriodUs(std::uint32_t periodUs);

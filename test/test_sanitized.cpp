@@ -9,11 +9,11 @@ using namespace robomaster;
 
 namespace {
 
-CanFrame feedbackFrame(std::uint8_t id, std::uint16_t encoder)
+canbridge::Frame feedbackFrame(std::uint8_t id, std::uint16_t encoder)
 {
-    CanFrame frame;
+    canbridge::Frame frame;
     frame.id = 0x200U + id;
-    frame.dlc = 8U;
+    frame.length = 8U;
     frame.data[0] = static_cast<std::uint8_t>(encoder >> 8U);
     frame.data[1] = static_cast<std::uint8_t>(encoder & 0xFFU);
     return frame;
@@ -48,7 +48,7 @@ int main()
                 MotorStatus::Ok);
         }
         assert(bus.updateControl(nowUs) == MotorBusStatus::Ok);
-        std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
+        std::array<canbridge::Frame, MotorBus::kMaxCommandFrames> frames{};
         std::size_t count = 0U;
         assert(bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok);
         assert(count == 1U);

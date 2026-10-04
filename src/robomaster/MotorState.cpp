@@ -106,7 +106,7 @@ MotorStateStatus MotorState::configurationStatus() const
 }
 
 MotorStateStatus MotorState::update(
-    const CanFrame &frame,
+    const canbridge::Frame &frame,
     std::uint32_t receivedAtUs)
 {
     if (configurationStatus_ != MotorStateStatus::Ok) {

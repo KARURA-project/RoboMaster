@@ -1,127 +1,130 @@
 #include <Arduino.h>
+#include <CANBridge/EspCan.h>
 #include <RoboMasterCore.h>
-#include "Esp32Can.hpp"
-using namespace robomaster;
-using board::Esp32Can;
-using board::Esp32CanConfig;
-using board::Esp32CanStatus;
 
-// XIAO ESP32S3: D0/GPIO1 TX, D1/GPIO2 RX; M3508 + C620, ID 1.
-Motor motor{1, MotorModel::M3508, ControllerModel::C620};
-MotorBus bus;
-Esp32Can can{Esp32CanConfig{1, 2, 8, 64}};
+#include <array>
+
+robomaster::Motor motor{
+    1,
+    robomaster::MotorModel::M3508,
+    robomaster::ControllerModel::C620};
+robomaster::MotorBus motorBus;
+canbridge::Config canConfig;
+canbridge::Bus canBus;
+
 bool ready = false;
 bool faulted = false;
 uint32_t waitingSinceUs = 0;
+robomaster::ControlType selected = robomaster::ControlType::Speed;
 
-void stopOnFault() {
+std::array<canbridge::Frame, robomaster::MotorBus::kMaxCommandFrames>
+    pendingFrames{};
+std::size_t pendingCount = 0;
+std::size_t pendingIndex = 0;
+
+void stopOnFault()
+{
     faulted = true;
-    bus.emergencyStopAll(); // Remains latched; reset the application to recover.
+    motorBus.emergencyStopAll();
+    pendingCount = 0;
+    pendingIndex = 0;
 }
 
-void updateTarget(uint32_t nowUs);
-
-void setup() {
-    Serial.begin(115200);
-    if (bus.add(motor) != MotorBusStatus::Ok ||
-        motor.setMaxCurrent(2.0) != MotorStatus::Ok ||
-        motor.setMaxSpeed(60.0) != MotorStatus::Ok ||
-        motor.setTrackingMaxSpeed(500.0) != MotorStatus::Ok ||
-        motor.setExpectedFeedbackRate(FeedbackRate::Hz1000) != MotorStatus::Ok ||
-        motor.setSpeedGains(PidGains{0.10, 0.10, 0.0}) != MotorStatus::Ok ||
-        motor.setPositionGains(PidGains{0.50, 0.0, 0.0}) != MotorStatus::Ok ||
-        motor.coast(micros()) != MotorStatus::Ok ||
-        can.begin() != Esp32CanStatus::Ok) {
-        stopOnFault();
-    }
-    waitingSinceUs = micros();
-}
-
-void loop() {
-    if (can.started()) {
-        // Receive routing belongs to the application, never to the CAN driver.
-        // Bound work per loop so control and keyboard processing cannot starve.
-        for (unsigned i = 0; i < 64U; ++i) {
-            board::CanFrame received;
-            const Esp32CanStatus status = can.receive(received);
-            if (status == Esp32CanStatus::NoFrame) break;
-            if (status != Esp32CanStatus::Ok) { stopOnFault(); break; }
-            CanFrame frame;
-            frame.id = received.id;
-            frame.dlc = received.dlc;
-            frame.data = received.data;
-            frame.extended = received.extended;
-            frame.remote = received.remote;
-            const MotorBusStatus feedback = bus.updateFeedback(frame, micros());
-            if (feedback != MotorBusStatus::Ok &&
-                feedback != MotorBusStatus::InvalidCanId &&
-                feedback != MotorBusStatus::UnknownMotor) stopOnFault();
+void receiveFeedback()
+{
+    for (unsigned int i = 0; i < 64U; ++i) {
+        canbridge::Frame frame;
+        const canbridge::Result result = canBus.receive(frame);
+        if (result == canbridge::Result::Empty) {
+            break;
         }
-        const board::Esp32CanHealth before = can.health();
-        const Esp32CanStatus healthStatus = can.pollHealth();
-        const board::Esp32CanHealth &after = can.health();
-        if (after.missedFrames != before.missedFrames ||
-            after.overrunFrames != before.overrunFrames ||
-            after.busErrors != before.busErrors ||
-            after.queueFullAlerts != before.queueFullAlerts) {
-            bus.notifyFeedbackLoss();
-        }
-        if (healthStatus != Esp32CanStatus::Ok) stopOnFault();
-    }
-    const uint32_t nowUs = micros();
-    if (!faulted && !ready) {
-        if (motor.state().hasFeedback()) {
-            if (motor.setPosition(0.0) != MotorStatus::Ok) stopOnFault();
-            else ready = true;
-        } else if (nowUs - waitingSinceUs >= 2000000U) {
+        if (result != canbridge::Result::Ok) {
             stopOnFault();
+            return;
         }
-    }
-    if (!ready && Serial.available()) {
-        if (Serial.read() == '!') stopOnFault();
-    }
-    if (ready && !faulted) updateTarget(nowUs);
-    if (!faulted && bus.updateControl(nowUs) != MotorBusStatus::Ok) stopOnFault();
-    // Keep sending zero-current frames after a fault; never replay an old target.
-    if (can.started() && bus.commandFramesDue(nowUs)) {
-        std::array<CanFrame, MotorBus::kMaxCommandFrames> frames{};
-        std::size_t count = 0U;
-        bool sent = bus.makeCommandFrames(frames, count) == MotorBusStatus::Ok;
-        for (std::size_t i = 0; sent && i < count; ++i) {
-            board::CanFrame outgoing;
-            outgoing.id = frames[i].id;
-            outgoing.dlc = frames[i].dlc;
-            outgoing.data = frames[i].data;
-            outgoing.extended = frames[i].extended;
-            outgoing.remote = frames[i].remote;
-            sent = can.send(outgoing) == Esp32CanStatus::Ok;
-        }
-        if (sent) bus.markCommandFramesSent(nowUs);
-        else stopOnFault();
-    }
-}
 
-// 1/2/3 select position/speed/current and coast until the next target key.
-// q/a/z = +90/0/-90 deg; w/s/x = +30/0/-30 rpm; e/d/c = +0.5/0/-0.5 A.
-// Space: coast (zero current). !: latched emergency stop in any startup state.
-ControlType selected = ControlType::Speed;
-void updateTarget(uint32_t nowUs) {
-    if (!Serial.available()) return; // Handle one key per loop; keep servicing CAN.
-    const char key = static_cast<char>(Serial.read());
-    if (key == '!') { stopOnFault(); return; }
-    if (key == '1' || key == '2' || key == '3' || key == ' ') {
-        if (key == '1') selected = ControlType::Position;
-        if (key == '2') selected = ControlType::Speed;
-        if (key == '3') selected = ControlType::Current;
-        if (motor.coast(nowUs) != MotorStatus::Ok) stopOnFault();
+        const robomaster::MotorBusStatus status =
+            motorBus.updateFeedback(frame, micros());
+        if (status != robomaster::MotorBusStatus::Ok &&
+            status != robomaster::MotorBusStatus::InvalidCanId &&
+            status != robomaster::MotorBusStatus::UnknownMotor) {
+            stopOnFault();
+            return;
+        }
+    }
+
+    canbridge::Health health;
+    if (canBus.pollHealth(health) != canbridge::Result::Ok) {
+        stopOnFault();
         return;
     }
+    if (health.receiveLoss) {
+        motorBus.notifyFeedbackLoss();
+        stopOnFault();
+    }
+    if (health.busOff || health.errorPassive) {
+        stopOnFault();
+    }
+}
+
+void sendCommands(uint32_t nowUs)
+{
+    if (pendingIndex == pendingCount) {
+        if (!motorBus.commandFramesDue(nowUs)) {
+            return;
+        }
+        if (motorBus.makeCommandFrames(pendingFrames, pendingCount) !=
+            robomaster::MotorBusStatus::Ok) {
+            stopOnFault();
+            return;
+        }
+        pendingIndex = 0;
+    }
+
+    while (pendingIndex < pendingCount) {
+        const canbridge::Result result = canBus.send(pendingFrames[pendingIndex]);
+        if (result == canbridge::Result::Busy) {
+            return;
+        }
+        if (result != canbridge::Result::Ok) {
+            stopOnFault();
+            return;
+        }
+        ++pendingIndex;
+    }
+
+    pendingCount = 0;
+    pendingIndex = 0;
+    motorBus.markCommandFramesSent(nowUs);
+}
+
+void updateTarget(uint32_t nowUs)
+{
+    if (!Serial.available()) {
+        return;
+    }
+
+    const char key = static_cast<char>(Serial.read());
+    if (key == '!') {
+        stopOnFault();
+        return;
+    }
+    if (key == '1' || key == '2' || key == '3' || key == ' ') {
+        if (key == '1') selected = robomaster::ControlType::Position;
+        if (key == '2') selected = robomaster::ControlType::Speed;
+        if (key == '3') selected = robomaster::ControlType::Current;
+        if (motor.coast(nowUs) != robomaster::MotorStatus::Ok) {
+            stopOnFault();
+        }
+        return;
+    }
+
     double value = 0.0;
-    if (selected == ControlType::Position) {
+    if (selected == robomaster::ControlType::Position) {
         if (key == 'q') value = 90.0;
         else if (key == 'z') value = -90.0;
         else if (key != 'a') return;
-    } else if (selected == ControlType::Speed) {
+    } else if (selected == robomaster::ControlType::Speed) {
         if (key == 'w') value = 30.0;
         else if (key == 'x') value = -30.0;
         else if (key != 's') return;
@@ -130,5 +133,65 @@ void updateTarget(uint32_t nowUs) {
         else if (key == 'c') value = -0.5;
         else if (key != 'd') return;
     }
-    if (motor.setTarget(selected, value, nowUs) != MotorStatus::Ok) stopOnFault();
+
+    if (motor.setTarget(selected, value, nowUs) !=
+        robomaster::MotorStatus::Ok) {
+        stopOnFault();
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    canConfig.bitrate = 1000000;
+    canConfig.txPin = D0;
+    canConfig.rxPin = D1;
+
+    if (motorBus.add(motor) != robomaster::MotorBusStatus::Ok ||
+        motor.setMaxCurrent(2.0) != robomaster::MotorStatus::Ok ||
+        motor.setMaxSpeed(60.0) != robomaster::MotorStatus::Ok ||
+        motor.setTrackingMaxSpeed(500.0) != robomaster::MotorStatus::Ok ||
+        motor.setExpectedFeedbackRate(robomaster::FeedbackRate::Hz1000) !=
+            robomaster::MotorStatus::Ok ||
+        motor.setSpeedGains(robomaster::PidGains{0.10, 0.10, 0.0}) !=
+            robomaster::MotorStatus::Ok ||
+        motor.setPositionGains(robomaster::PidGains{0.50, 0.0, 0.0}) !=
+            robomaster::MotorStatus::Ok ||
+        motor.coast(micros()) != robomaster::MotorStatus::Ok ||
+        canBus.begin(canConfig) != canbridge::Result::Ok) {
+        stopOnFault();
+    }
+
+    waitingSinceUs = micros();
+}
+
+void loop()
+{
+    receiveFeedback();
+
+    const uint32_t nowUs = micros();
+    if (!faulted && !ready) {
+        if (motor.state().hasFeedback()) {
+            if (motor.setPosition(0.0) == robomaster::MotorStatus::Ok) {
+                ready = true;
+            } else {
+                stopOnFault();
+            }
+        } else if (nowUs - waitingSinceUs >= 2000000U) {
+            stopOnFault();
+        }
+    }
+
+    if (!ready && Serial.available() && Serial.read() == '!') {
+        stopOnFault();
+    }
+    if (ready && !faulted) {
+        updateTarget(nowUs);
+    }
+    if (!faulted &&
+        motorBus.updateControl(nowUs) != robomaster::MotorBusStatus::Ok) {
+        stopOnFault();
+    }
+    sendCommands(nowUs);
 }

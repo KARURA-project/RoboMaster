@@ -1,7 +1,8 @@
 # Board-independent core
 
 The headers under `src/robomaster` do not depend on Arduino, a CAN driver,
-an operating system, dynamic allocation, or exceptions. They require C++11.
+an operating system, dynamic allocation, or exceptions. They require C++11
+and the common `canbridge::Frame` type from `CANBridge.h`.
 
 Include the complete public API with:
 
@@ -16,9 +17,10 @@ Arduino dependencies.
 ## Hardware boundary
 
 `RoboMasterCore.h` always exposes only the board-independent API, including on
-ESP32. CAN initialization, receive/send queues, clock reads, hardware timers,
-interrupts, and application tasks are owned by the application. The library
-accepts `CanFrame` values and timestamps; generating a frame performs no I/O.
+ESP32. CANBridge and the application own CAN initialization, receive/send
+queues and health. Clock reads, hardware timers, interrupts and tasks are also
+application concerns. RoboMaster accepts `canbridge::Frame` values and
+timestamps; generating a frame performs no I/O.
 No hardware timer is required. Regular application calls drive the core's
 existing period checks and watchdogs.
 
@@ -56,12 +58,12 @@ set the tracking maximum speed before position control.
 
 ## Typical non-blocking loop
 
-1. Convert each received native CAN frame to `robomaster::CanFrame` and call
-   `MotorBus::updateFeedback(frame, nowUs)`.
+1. Receive a `canbridge::Frame` and call
+   `MotorBus::updateFeedback(frame, nowUs)` directly.
 2. Call `MotorBus::updateControl(nowUs)` as often as practical. Each control
    loop runs only when its configured period has elapsed.
 3. When `MotorBus::commandFramesDue(nowUs)` is true, call
-   `makeCommandFrames()`, convert and send every returned frame, then call
+   `makeCommandFrames()`, send every returned frame through CANBridge, then call
    `markCommandFramesSent(nowUs)`.
 
 All timestamps are unsigned 32-bit microseconds. Elapsed-time calculations

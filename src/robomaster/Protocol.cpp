@@ -72,7 +72,7 @@ ProtocolStatus getControllerSpec(
 }
 
 ProtocolStatus decodeFeedback(
-    const CanFrame &frame,
+    const canbridge::Frame &frame,
     ControllerModel model,
     Feedback &feedback)
 {
@@ -87,7 +87,7 @@ ProtocolStatus decodeFeedback(
     if (frame.id < kFeedbackIdFirst || frame.id > kFeedbackIdLast) {
         return ProtocolStatus::InvalidCanId;
     }
-    if (frame.dlc != kCanPayloadSize) {
+    if (frame.length != kCanPayloadSize) {
         return ProtocolStatus::InvalidFrameLength;
     }
 
@@ -153,7 +153,7 @@ ProtocolStatus estimateCurrent(
 }
 
 ProtocolStatus setCommandCurrent(
-    CanFrame &frame,
+    canbridge::Frame &frame,
     std::uint8_t id,
     std::int16_t currentRaw)
 {
@@ -170,7 +170,7 @@ ProtocolStatus setCommandCurrent(
     if (frame.id != expectedId) {
         return ProtocolStatus::InvalidCanId;
     }
-    if (frame.dlc != kCanPayloadSize) {
+    if (frame.length != kCanPayloadSize) {
         return ProtocolStatus::InvalidFrameLength;
     }
 
@@ -182,15 +182,15 @@ ProtocolStatus setCommandCurrent(
 ProtocolStatus makeCommandFrame(
     std::uint8_t firstId,
     const std::array<std::int16_t, 4> &currents,
-    CanFrame &frame)
+    canbridge::Frame &frame)
 {
     if (firstId != 1U && firstId != 5U) {
         return ProtocolStatus::InvalidId;
     }
 
-    frame = CanFrame{};
+    frame = canbridge::Frame{};
     frame.id = firstId == 1U ? kCommandId1To4 : kCommandId5To8;
-    frame.dlc = static_cast<std::uint8_t>(kCanPayloadSize);
+    frame.length = static_cast<std::uint8_t>(kCanPayloadSize);
 
     for (std::size_t slot = 0; slot < currents.size(); ++slot) {
         writeInt16BigEndian(currents[slot], frame.data, slot * 2U);

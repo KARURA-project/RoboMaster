@@ -53,7 +53,7 @@ MotorStatus Motor::status() const
 }
 
 MotorStateStatus Motor::updateFeedback(
-    const CanFrame &frame,
+    const canbridge::Frame &frame,
     std::uint32_t receivedAtUs)
 {
     const MotorStateStatus result = state_.update(frame, receivedAtUs);

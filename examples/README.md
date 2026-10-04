@@ -14,11 +14,25 @@ correct CAN termination. The motor controller needs its own power supply.
 The current limit is 2 A. Gains are starting values for an unloaded M3508;
 adjust limits and gains for your mechanism before applying power.
 
-Install the RoboMaster core library for Arduino, then open the desired `.ino`.
-The sketch-local `Esp32Can.cpp/.hpp` are application sources; keep them beside
-the sketch. For PlatformIO, open the desired project and run build/upload.
-Its local library dependency points to this repository; keep the directory layout.
-Serial monitor baud is 115200. No dedicated hardware timer is used.
+Install both CANBridge and RoboMaster for Arduino, then open the desired `.ino`.
+For PlatformIO, open the desired project and run build/upload; its dependencies
+refer to this RoboMaster checkout and the CANBridge repository. Serial monitor
+baud is 115200. No dedicated hardware timer is used.
+
+These representative examples select XIAO ESP32S3 internal CAN with
+`CANBridge/EspCan.h`. RoboMaster itself is board-independent. For another
+CANBridge-supported controller, replace the selected header and configuration:
+
+| CAN hardware | Header | Required configuration |
+| --- | --- | --- |
+| ESP internal CAN | `CANBridge/EspCan.h` | bitrate, TX pin, RX pin |
+| MCP2515 | `CANBridge/Mcp2515.h` | bitrate, SPI, CS pin, oscillator |
+| MCP2518FD in Classic CAN mode | `CANBridge/Mcp2518.h` | bitrate, SPI, CS pin, oscillator |
+
+The `canbridge::Frame`, receive/send calls and RoboMaster code do not change.
+This allows the same motor-control application to be used with CANBridge's
+supported ESP32 and RP2040-family board/controller combinations. Check the
+CANBridge documentation for the current compatibility and validation status.
 
 Basic automatically starts after feedback arrives and repeats +30 rpm, zero
 speed, -30 rpm, zero speed, for two seconds each. Zero speed is active speed
@@ -49,13 +63,16 @@ These replace the earlier per-mode and two-motor samples. Hardware execution of
 these new applications has not yet been verified; build results are separate from
 physical CAN/motor verification.
 
-Build validation: both PlatformIO projects and both actual Arduino `.ino`
-sketches compiled for XIAO ESP32S3 using PlatformIO Espressif32 6.13.0 /
-Arduino-ESP32 2.0.17. The sketches were built through temporary PlatformIO
-projects; Arduino IDE itself and hardware operation were not tested.
+Build validation: both PlatformIO projects compile for XIAO ESP32S3 with
+Arduino-ESP32 3.3.7. CANBridge separately supports the older Arduino-ESP32
+2.0.17 API used by PlatformIO Espressif32 6.13.0. Each Arduino `.ino` has the
+same source as its PlatformIO `main.cpp`; Arduino IDE itself and hardware
+operation of the CANBridge-integrated examples have not yet been tested.
 
-CAN sources use their own `board::CanFrame` and report transport health only.
-They include no RoboMaster headers and perform no motor routing or stopping.
-Only the `.ino` / `main.cpp` converts frames, routes feedback, generates commands,
-and translates transport faults into feedback-loss notification and latched stops.
-Receive work is bounded to 64 frames per loop to keep control calls running.
+CANBridge owns CAN initialization, frame I/O and transport health. RoboMaster
+directly consumes and produces `canbridge::Frame`; the examples contain no CAN
+driver and perform no frame conversion. The `.ino` / `main.cpp` only routes
+feedback, generates motor commands and translates transport faults into
+feedback-loss notification and latched stops. Receive work is bounded to 64
+frames per loop to keep control calls running. A `Busy` transmit result retains
+the pending frame and retries it before generating a newer command batch.
