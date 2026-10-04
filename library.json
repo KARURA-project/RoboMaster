@@ -31,7 +31,7 @@
       "test",
       ".DS_Store",
       "**/.DS_Store",
-      "prototypes"
+      "examples/platformio/*/.pio"
     ]
   }
 }

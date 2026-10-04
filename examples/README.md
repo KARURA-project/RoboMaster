@@ -1,11 +1,11 @@
-# XIAO ESP32S3 samples
+# Examples
 
 Two applications, each supplied for Arduino IDE and PlatformIO:
 
 | Application | Arduino sketch | PlatformIO project |
 | --- | --- | --- |
-| Basic | `arduino/XiaoEsp32s3Basic` | `platformio/basic` |
-| Keyboard | `arduino/XiaoEsp32s3Keyboard` | `platformio/keyboard` |
+| Basic | `XiaoEsp32s3Basic` | `platformio/XiaoEsp32s3Basic` |
+| Keyboard | `XiaoEsp32s3Keyboard` | `platformio/XiaoEsp32s3Keyboard` |
 
 Use an M3508 + C620 with controller ID 1, 1 Mbit/s CAN and 1 kHz feedback.
 Connect XIAO D0/GPIO1 to transceiver TXD and D1/GPIO2 to RXD; use a compatible

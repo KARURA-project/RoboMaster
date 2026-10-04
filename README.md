@@ -64,14 +64,17 @@ find_package(RoboMasterCore CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE RoboMaster::Core)
 ```
 
-## Retained prototype
+## Examples
 
-Existing ESP32S3 applications and their peripheral implementations are retained
-under `prototypes/esp32s3/`, outside the library source tree and PlatformIO
-library export. They are historical prototype code, not a required adapter or
-an expanding board support layer. See its `README.md` for the basic and keyboard samples for Arduino and PlatformIO.
-ESP32 types are no longer included by `RoboMasterCore.h`; applications that
-used them must compile their own peripheral sources and include their headers.
+Two ESP32S3 samples are provided for both Arduino and PlatformIO under
+`examples/`: `XiaoEsp32s3Basic` repeats forward/stop/reverse/stop, and
+`XiaoEsp32s3Keyboard` accepts position, speed, and current commands over serial.
+Arduino sketches are directly under `examples/`; complete PlatformIO projects
+are under `examples/platformio/`. Board identity is in each sample name.
+See [the examples guide](examples/README.md) for wiring, controls, and validation.
+
+CAN implementation files belong to each sample application, outside the library
+source tree. No board-specific API is included by `RoboMasterCore.h`.
 
 ## Validation
 
